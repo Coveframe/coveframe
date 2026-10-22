@@ -1,0 +1,9 @@
+{
+  "name": "media-hub-windows",
+  "version": "0.6.0",
+  "private": true,
+  "type": "module",
+  "description": "Coveframe: a local Windows web wizard for your media apps",
+  "engines": { "node": ">=24" },
+  "scripts": { "test": "node --test test/*.test.mjs", "preflight": "node bin/media-hub.mjs preflight" }
+}
