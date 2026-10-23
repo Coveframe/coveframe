@@ -18,7 +18,8 @@ export async function createLocalSetupRuntime() {
   let sources = current.sources;
   let metadata = current.metadata;
   let discovery = current.discovery;
-  const tvScreen=createTvSetup({api,getMedia:()=>media,onMedia:value=>{media=value;},getContext:()=>({accounts,sources,discovery})});
+  const tvScreen=createTvSetup({api,getMedia:()=>media,onMedia:value=>{media=value;}});
+  const codexHelp=createCodexHelp({getContext:()=>({accounts,media,sources,discovery,selectedId:tvScreen.getSelectedId()})});
   const hub=createHubDashboard({api,initial:current,onState:latest=>{
     accounts=latest.accounts;media=latest.media;sources=latest.sources;metadata=latest.metadata;discovery=latest.discovery;
   }});
@@ -67,6 +68,7 @@ export async function createLocalSetupRuntime() {
     },
     decorate(content, state, guide, render) {
       if(state.step===5)tvScreen.render(content,{...state,providers:guide.providers.map(x=>({id:x.id,plan:x.selectedPlan.id}))},render);
+      codexHelp.render(document.getElementById('setup-help'),{...state,providers:guide.providers.map(x=>({id:x.id,plan:x.selectedPlan.id}))});
       if (working(media) || working(sources) || working(discovery)) refresh(render);
       if(state.step===1 && media.canResume) {
         const profiles=document.getElementById('profiles');

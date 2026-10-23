@@ -4,15 +4,18 @@ export function buildCodexSetupPrompt({state={},media={},accounts={},sources={},
  const phase=value=>['running','not-started','stopped','failed','preparing','downloading','starting','configuring','off','permission','needs-attention'].includes(value)?value:'unknown';
  const devices={androidtv:'Android / Google TV',firetv:'Fire TV',appletv:'Apple TV',other:'Other TV or device'};
  const providers={torbox:'TorBox','real-debrid':'Real-Debrid',premiumize:'Premiumize'},tiers={essential:'Essential',pro:'Pro',premium:'Premium'};
+ const steps=['Your PC','Your household','Your providers','Posters & ratings','How you watch','Your TV','Your plan'];
+ const step=Number.isInteger(state.step)&&state.step>=0&&state.step<steps.length?state.step:null;
+ const count=value=>/^[1-6]$/.test(String(value))?String(value):'not chosen';
  const network=media.network||{},adapter=(network.adapters||[]).find(x=>x.id===(selectedId??network.selectedId));
  const parts=String(adapter?.address||'').split('.'),octets=parts.map(Number);
  const address=parts.length===4&&parts.every(x=>/^\d{1,3}$/.test(x))&&octets.every(x=>x>=0&&x<=255)&&
   (octets[0]===10||octets[0]===192&&octets[1]===168||octets[0]===172&&octets[1]>=16&&octets[1]<=31)?octets.join('.'):null;
  const category=['Private','Public','DomainAuthenticated'].includes(adapter?.category)?adapter.category:'unknown';
- const rows=['Help me finish Coveframe setup on this Windows PC and connect my TV using Moonfin. Work step by step and explain actions I must do on the TV.',
-  '', 'Project: https://github.com/Coveframe/coveframe', 'Setup dashboard (on this PC): http://127.0.0.1:18797/',
-  'This is a snapshot from the local wizard. Recheck the installed version and live status first; the public release may differ.',
-  '', 'CURRENT SETUP',`TV: ${Object.hasOwn(devices,state.tv)?devices[state.tv]:'Not chosen'}`,`Media apps: ${phase(media.phase)}`,`Source apps: ${phase(sources.phase)}`,`Discovery: ${phase(discovery.phase)}`,
+ const rows=['Help me with Coveframe setup on this Windows PC. Start with my current step and explain actions I must do myself.',
+  '', 'CURRENT SETUP',`Current step: ${step===null?'not selected':`${step+1} of 7 — ${steps[step]}`}`,
+  `Household: ${count(state.televisions)} TVs; ${count(state.profiles)} viewer profiles`,
+  `TV: ${Object.hasOwn(devices,state.tv)?devices[state.tv]:'Not chosen'}`,`Media apps: ${phase(media.phase)}`,`Source apps: ${phase(sources.phase)}`,`Discovery: ${phase(discovery.phase)}`,
   `TV access: ${phase(network.phase)}`,`Selected home connection: ${address||'not detected'} (${category})`,
   `Windows TV firewall permission: ${network.firewallAllowed===true?'present at last check':'not confirmed'}`,
   `Home address responds: ${network.reachable===true?'yes at last check':'not confirmed'}`,
@@ -27,6 +30,8 @@ export function buildCodexSetupPrompt({state={},media={},accounts={},sources={},
  }
  rows.push(`Downloads: optional; ${state.downloads===true?'requested; installation/status must be checked':'not requested'}`,
   `Extra ratings selected: ${[state.mdblist===true?'MDBList':'',state.omdb===true?'OMDb':''].filter(Boolean).join(', ')||'none'}; basic Jellyfin metadata needs no personal key`,
+  '', 'Project: https://github.com/Coveframe/coveframe', 'Setup dashboard (on this PC): http://127.0.0.1:18797/',
+  'This is a snapshot from the local wizard. Recheck the installed version and live status first; the public release may differ.',
   '', 'HOW TO HELP',
   '1. Find my extracted Coveframe folder or source checkout (ask its location if needed), inspect README, RELEASE-NOTES and docs/TV-SETUP.md if available, then check local app status. Preserve existing apps, settings, files and other media installations. Ask which PC/network or TV model if unclear. This snapshot is not playback proof.',
   '2. Keep TorBox Essential + Real-Debrid Premium recommended; multiple providers are supported. Do not buy subscriptions or change my selected tiers. Keys belong only in the local wizard, never chat. Do not read credential vaults, copy keys, or expose passwords, session tokens, source URLs or raw logs.',
@@ -38,7 +43,34 @@ export function buildCodexSetupPrompt({state={},media={},accounts={},sources={},
  return rows.join('\n');
 }
 
-export function createTvSetup({api,getMedia,onMedia,getContext=()=>({})}){
+export function createCodexHelp({getContext}){
+ let state={},dialog;
+ return {render(target,latest){
+  state=latest;
+  if(!target)return;
+  target.innerHTML='<button id="setup-help-button" class="help-button" type="button" aria-haspopup="dialog"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 2-2.5 2-2.5 4M12 16v1"/></svg>Get help</button>';
+  target.querySelector('button').onclick=()=>{
+   if(!dialog){
+    dialog=document.createElement('dialog');dialog.className='download-confirmation codex-help';dialog.setAttribute('aria-labelledby','codex-help-title');
+    dialog.innerHTML='<div class="section-heading"><h2 id="codex-help-title">Get help with Codex</h2><button id="codex-close" class="secondary" type="button" aria-label="Close help">Close</button></div><p>Copy your current progress into Codex on this PC. Add what went wrong.</p><p class="hint">No API keys or passwords. Review before sharing.</p><label for="codex-setup-prompt">Your setup prompt</label><textarea id="codex-setup-prompt" rows="9" readonly spellcheck="false"></textarea><div class="actions"><button id="codex-copy" class="primary" type="button">Copy Codex prompt</button></div><p id="codex-copy-status" role="status"></p>';
+    document.body.append(dialog);
+    dialog.addEventListener('close',()=>document.getElementById('setup-help-button')?.focus());
+    dialog.querySelector('#codex-close').onclick=()=>dialog.close();
+    dialog.querySelector('#codex-copy').onclick=async()=>{
+     const field=dialog.querySelector('textarea'),feedback=dialog.querySelector('[role="status"]');
+     field.value=buildCodexSetupPrompt({...getContext(),state});
+     try{await navigator.clipboard.writeText(field.value);feedback.textContent='Copied. Paste into Codex on this PC.';}
+     catch{field.focus();field.select();feedback.textContent='Prompt selected. Press Ctrl+C, or use your device’s Copy command.';}
+    };
+   }
+   dialog.querySelector('textarea').value=buildCodexSetupPrompt({...getContext(),state});
+   dialog.querySelector('[role="status"]').textContent='';
+   dialog.showModal();
+  };
+ }};
+}
+
+export function createTvSetup({api,getMedia,onMedia}){
  let scanned=false,busy=false,message='',selectedId;
  const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  async function action(action,data,render){
@@ -47,7 +79,7 @@ export function createTvSetup({api,getMedia,onMedia,getContext=()=>({})}){
   catch(error){message=error.message;try{onMedia((await api('/api/state')).media);}catch{}}
   finally{busy=false;render();}
  }
- return {render(content,state,render){
+ return {getSelectedId:()=>selectedId,render(content,state,render){
   const media=getMedia(),network=media.network||{phase:'off',adapters:[]},adapters=network.adapters||[],running=network.phase==='running';
   if(!adapters.some(x=>x.id===selectedId))selectedId=network.selectedId||adapters.find(x=>x.category==='Private')?.id||adapters[0]?.id;
   const selected=adapters.find(x=>x.id===selectedId);
@@ -84,16 +116,6 @@ export function createTvSetup({api,getMedia,onMedia,getContext=()=>({})}){
     <details><summary>Can't connect?</summary><ul><li>Check both devices use the same home network. Guest Wi-Fi and Wi-Fi isolation can block the connection.</li><li>Type the full server address shown above. Never enter localhost or 127.0.0.1 on the TV.</li><li>Keep this PC awake and Coveframe's media apps running. If the address changes, scan and update the TV connection.</li><li>If you use a VPN, its local-network blocking option may prevent TV access. Use its trusted local-network setting if available.</li><li>If sign-in works but a title will not play, check your sources on this PC and try another available title.</li></ul></details>`;
    content.append(guide);guide.querySelector('#tv-check').onclick=()=>action('check',{},render);
   }
-  const help=document.createElement('details');help.className='hub-section codex-help';
-  help.innerHTML='<summary>Get help with Codex</summary><p>Copy this prompt into Codex on this PC. Add your TV model and what went wrong.</p><p class="hint">Includes setup choices, app status and your local network address. No API keys or passwords. Review it before sharing.</p><label for="codex-setup-prompt">Your setup prompt</label><textarea id="codex-setup-prompt" rows="9" readonly spellcheck="false"></textarea><div class="actions"><button id="codex-copy" class="secondary">Copy Codex prompt</button></div><p id="codex-copy-status" role="status"></p>';
-  const field=help.querySelector('#codex-setup-prompt'),feedback=help.querySelector('#codex-copy-status');
-  const updatePrompt=()=>{field.value=buildCodexSetupPrompt({...getContext(),state,media:getMedia(),selectedId});};
-  updatePrompt();help.addEventListener('toggle',()=>{if(help.open)updatePrompt();});
-  help.querySelector('#codex-copy').addEventListener('click',async()=>{
-   updatePrompt();try{await navigator.clipboard.writeText(field.value);feedback.textContent='Copied. Paste into Codex on this PC.';}
-   catch{field.focus();field.select();feedback.textContent='Prompt selected. Press Ctrl+C, or use your device’s Copy command.';}
-  });
-  content.append(help);
   if(!scanned&&media.phase==='running'){scanned=true;queueMicrotask(()=>action('scan',{},render));}
  }};
 }

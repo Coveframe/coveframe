@@ -17,6 +17,16 @@ A local Windows web wizard for Jellyfin, Moonfin and connected media apps.
 
 Basic PC setup needs no administrator rights, VM, Docker, separate Node installation or Windows service. Optional TV access may ask Windows administrator permission for one restricted firewall rule. This preview is unsigned. Follow your normal Windows trust decisions; do not disable antivirus or bypass Windows protection. The complete source is available to inspect or run yourself.
 
+## A look inside
+
+Current source, shown with simulated demo data. Screenshots demonstrate the interface, not verified playback. The small **Get help** button opens a current-progress prompt on every setup step; it is coming in the next download. Release 0.7.0 has Codex help on **Your TV**.
+
+![Guided setup with a discreet Get help button](assets/screenshots/setup.png)
+
+![Dashboard with playback, sources and customization shortcuts](assets/screenshots/dashboard.png)
+
+[See the Codex help dialog](assets/screenshots/codex-help.png). It refreshes on open and before copying, with no API keys or passwords. Close it or press Escape to return to setup.
+
 ## Customize later
 
 **Settings** saves Moonfin banner rotation, trailers and theme music, plus AIOStreams resolution, ordering and quality choices. Restore defaults resets that section while keeping account connections. Reload Moonfin after saving. More themes and home-screen choices are in Moonfin's own Settings.

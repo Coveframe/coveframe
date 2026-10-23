@@ -111,6 +111,7 @@ export function createHubDashboard({api,initial,onState=()=>{}}) {
       document.getElementById('setup-navigation').hidden=view!=='guide';
       document.querySelector('main footer').hidden=view!=='guide';
       document.getElementById('progress').hidden=view!=='guide';
+      const toolbar=document.getElementById('setup-toolbar');if(toolbar)toolbar.hidden=view!=='guide';
       for(const [id,target] of [['hub-home','home'],['hub-library','library'],['hub-settings','settings'],['hub-guide','guide'],['hub-system','system']]) {
         const button=document.getElementById(id);if(view===target)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');
       }

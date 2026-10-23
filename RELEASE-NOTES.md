@@ -1,3 +1,9 @@
+# Next release — in source
+
+- A small **Get help** button appears in the same place on every setup step. The Codex prompt opens only on request, includes the current step and household choices, and refreshes on open and copy. Close or Escape returns to setup; API keys and passwords remain excluded.
+- Added setup, Dashboard and help-dialog screenshots to the README, using simulated demo data.
+- The downloadable 0.7.0 package is unchanged. Boot testing remains deferred.
+
 # Coveframe 0.7.0 — friends preview
 
 Download the Windows x64 ZIP, extract the whole folder and open **Coveframe.exe**. Follow the seven-step local wizard. Recommended: **TorBox Essential + Real-Debrid Premium**; basic posters need no personal API key. Optional ratings and downloads can wait.

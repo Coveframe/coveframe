@@ -31,7 +31,7 @@ export async function renderSetupPreview({ now = new Date(), localSetup = null }
 ${localSetup ? `<nav aria-label="Coveframe" class="hub-nav">${navigation}</nav>` : ''}
 <nav aria-label="Setup steps" id="setup-navigation"><p class="nav-label">Your setup</p><ol id="steps"></ol></nav>
 <div class="preview-note">${localSetup ? '<p class="local-label">Setup stays on this PC</p><button id="stop-apps" class="secondary">Stop all apps</button><button id="stop-setup" class="rail-quiet">Quit Coveframe</button><p id="lifecycle-message" role="status"></p>' : 'Preview only. No changes to your PC.'}</div></aside>
-<main><div class="page"><p id="progress" class="progress"></p><section id="content" aria-labelledby="page-title"></section>
+<main><div class="page"><div id="setup-toolbar" class="setup-toolbar"><p id="progress" class="progress"></p>${localSetup?'<div id="setup-help"></div>':''}</div><section id="content" aria-labelledby="page-title"></section>
 <p id="announcement" class="sr-only" aria-live="polite"></p></div>
 <footer><button id="back" class="secondary">Back</button><span id="next-step" class="footer-hint"></span><button id="next" class="primary">Continue</button></footer></main></div>
 <script id="guide-data" type="application/json"${nonce}>${data}</script><script type="module"${nonce}>${engine}\n${client}\n${libraryClient}\n${systemClient}\n${dashboardClient}\n${tvClient}\n${liveClient}\ninitializeSetupPreview({ composeSetupPlan, saveSetupPlan, resolveWizardStep${localSetup ? ', runtime: await createLocalSetupRuntime()' : ''} });</script>

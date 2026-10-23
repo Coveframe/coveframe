@@ -2,6 +2,20 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {buildCodexSetupPrompt} from '../ui/tv-client.mjs';
 
+test('help identifies the current wizard step and updates choices without copying free-form input',()=>{
+ const state={step:2,televisions:'2',profiles:'3',providers:[{id:'torbox',plan:'essential'}],sourceSearch:true};
+ const before=buildCodexSetupPrompt({state});
+ assert.match(before,/Current step: 3 of 7 — Your providers/);
+ assert.match(before,/Household: 2 TVs; 3 viewer profiles/);
+ assert.match(before,/TorBox: Essential/);
+ const after=buildCodexSetupPrompt({state:{...state,step:4,downloads:true,mdblist:true,householdName:'SECRET-NAME',issue:'SECRET-ISSUE'}});
+ assert.match(after,/Current step: 5 of 7 — How you watch/);
+ assert.match(after,/Downloads: optional; requested/);
+ assert.match(after,/Extra ratings selected: MDBList/);
+ assert.doesNotMatch(after,/SECRET/);
+ assert.match(buildCodexSetupPrompt({state:{step:'SECRET-STEP',profiles:'SECRET-PROFILES'}}),/Current step: not selected/);
+});
+
 test('the setup-help prompt gives Codex useful current context without forwarding credentials or arbitrary text',()=>{
  const prompt=buildCodexSetupPrompt({state:{tv:'firetv',providers:[{id:'torbox',plan:'pro'},{id:'real-debrid',plan:'premium'}],downloads:false},
   selectedId:9,media:{phase:'running',password:'SECRET-HOUSEHOLD',network:{phase:'off',selectedId:7,adapters:[{id:9,name:'SECRET-ADAPTER',address:'192.168.1.57',category:'Public'}],url:'https://SECRET-URL@example.com/?key=SECRET-QUERY',message:'SECRET-ERROR',firewallAllowed:false}},
