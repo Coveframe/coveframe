@@ -1,4 +1,4 @@
-COVEFRAME 0.7.0 - FRIENDS PREVIEW
+COVEFRAME 0.7.1 BETA 1
 
 1. Extract the whole ZIP and open Coveframe.exe.
 2. Follow the local wizard to create your household and connect accounts.
@@ -7,7 +7,7 @@ COVEFRAME 0.7.0 - FRIENDS PREVIEW
 5. Find titles adds streaming links. Optional downloads are in Settings.
 6. Your TV guides Moonfin setup on your trusted Private home network.
    Review Enable TV access before Windows adds its restricted firewall rule.
-   Get help with Codex copies setup details without keys or passwords.
+   Get help on any setup step opens a Codex prompt without keys or passwords.
 
 CUSTOMIZE: Settings saves Moonfin/AIOStreams preferences. Reload Moonfin after saving.
 STOP: Stop all apps keeps the dashboard open. Quit Coveframe also closes the wizard.
@@ -22,7 +22,7 @@ Optional TV access may request Windows administrator permission. Only media is s
 on the selected Private home address, port 18799. The wizard stays on this PC.
 Nothing starts automatically when Windows starts.
 
-This is an unsigned preview. Follow normal Windows trust decisions. Do not disable
+This is an unsigned beta. Follow normal Windows trust decisions. Do not disable
 antivirus or bypass Windows protection. Read RELEASE-NOTES.md for testing limitations.
 Physical-TV playback, full provider/download checks and software updates need testing.
 Boot testing is deferred. Existing media installations are not changed.

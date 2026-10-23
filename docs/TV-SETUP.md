@@ -15,7 +15,7 @@ Only on your own trusted home network, open **Windows Settings → Network & int
 
 ## If it cannot connect
 
-Choose the small **Get help** button at the top of any setup step (current source; release 0.7.0 has **Get help with Codex** at the bottom of **Your TV**). Review the prompt, choose **Copy Codex prompt**, then paste it into Codex on this PC. Add your TV model and what went wrong. It includes your current step, household choices, selected plans, connection status and the local network address, with no API keys or passwords. The prompt refreshes when opened and before copying. If clipboard access is unavailable, it is selected for manual copying. Close the dialog or press Escape to return to setup.
+Choose the small **Get help** button at the top of any setup step. Review the prompt, choose **Copy Codex prompt**, then paste it into Codex on this PC. Add your TV model and what went wrong. It includes your current step, household choices, selected plans, connection status and the local network address, with no API keys or passwords. The prompt refreshes when opened and before copying. If clipboard access is unavailable, it is selected for manual copying. Close the dialog or press Escape to return to setup.
 
 - Use the address shown by Coveframe, never `localhost` or `127.0.0.1` on the TV.
 - Check both devices use the same network. Guest Wi-Fi or access-point isolation can prevent access.

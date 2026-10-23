@@ -53,9 +53,9 @@ for(const id of ['aiostreams','seerr']) {
   if(sha(await readFile(source))!==pkg.sha256)throw Error(`Bundled ${id} checksum did not match`);
   await copyFile(source,join(output,'packages',pkg.file));
 }
-await writeFile(join(output, 'build.json'), JSON.stringify({ name: 'Media Hub local setup', version,
+await writeFile(join(output, 'build.json'), JSON.stringify({ name: 'Coveframe', version,
   runtime: { name: runtime, sha256: expected, source: `https://nodejs.org/dist/v24.15.0/${runtime}.zip` },
-  packages:mediaPackages,scope: 'Friends preview: local streaming wizard, optional downloads and Private-network TV setup; physical TV and boot unqualified', signed: false, builtAt: new Date().toISOString() }, null, 2) + '\n');
+  packages:mediaPackages,scope: 'Public beta: local streaming wizard, optional downloads and Private-network TV setup; physical TV and boot unqualified', signed: false, builtAt: new Date().toISOString() }, null, 2) + '\n');
 await run(powershell, ['-NoProfile', '-NonInteractive', '-File', join(root, 'scripts', 'package-portable.ps1'), '-Root', root, '-Output', output, '-ZipOnly'], { windowsHide: true, timeout: 600000 });
 const zip = output + '.zip';
 const checksum = sha(await readFile(zip));

@@ -1,8 +1,14 @@
-# Next release — in source
+# Coveframe 0.7.1 Beta 1
 
 - A small **Get help** button appears in the same place on every setup step. The Codex prompt opens only on request, includes the current step and household choices, and refreshes on open and copy. Close or Escape returns to setup; API keys and passwords remain excluded.
 - Added setup, Dashboard and help-dialog screenshots to the README, using simulated demo data.
-- The downloadable 0.7.0 package is unchanged. Boot testing remains deferred.
+- Public beta naming throughout the launcher, README and About this PC. Includes the streaming wizard, TorBox Essential + Real-Debrid Premium recommendation, optional download consent and home-network TV setup from 0.7.0.
+
+Download the Windows x64 ZIP, extract the entire folder and open **Coveframe.exe**. No VM, Docker or separate Node installation is needed. Connect your own provider accounts in the local wizard. Optional Radarr/Sonarr downloads explain and confirm the official Decypharr executable before it runs.
+
+To update: **Quit Coveframe**, extract the beta into a new folder and open its launcher. Keep the same data folder for accounts and settings, and retain your old release until the beta works. Do not run both together.
+
+This beta is unsigned. Physical-TV playback, the real Windows firewall permission, clean-PC setup, full completed-download/import, broad provider seek/audio/subtitle reliability and vendor-app upgrade/rollback checks remain incomplete. Real-Debrid supports completed cloud-library files through the local bridge. Boot testing remains deferred. Follow normal Windows trust decisions; do not disable antivirus or bypass Windows protection.
 
 # Coveframe 0.7.0 — friends preview
 

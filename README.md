@@ -4,7 +4,7 @@
 
 A local Windows web wizard for Jellyfin, Moonfin and connected media apps.
 
-**Friends preview.** The wizard guides streaming, optional downloads and home TV setup. Physical-TV playback, complete provider/download qualification and software updates still need verification. Boot testing stays deferred. Read the [release notes](RELEASE-NOTES.md) first.
+**Public beta.** The wizard guides streaming, optional downloads and home TV setup. Physical-TV playback, complete provider/download qualification and software updates still need verification. Boot testing stays deferred. Read the [release notes](RELEASE-NOTES.md) first.
 
 ## Start here
 
@@ -13,13 +13,13 @@ A local Windows web wizard for Jellyfin, Moonfin and connected media apps.
 3. Create your household. Setup downloads separate Jellyfin and Moonbase packages, about 275 MB. AIOStreams and Seerr are included in the ZIP.
 4. Keep **TorBox + Real-Debrid** selected. Start with **TorBox Essential + Real-Debrid Premium**; choose TorBox Pro if you want its Usenet features. The wizard links to subscriptions and API-key pages. Selecting a tier does not purchase or change a subscription.
 5. Connect your accounts and open Moonfin. Basic posters need no personal API key. Optional ratings keys and downloads can wait.
-6. For your TV, open **Your TV**. Scan your trusted Private home network, review **Enable TV access**, then follow the Moonfin steps. **Get help with Codex** copies a setup prompt without passwords or API keys. See the [TV guide](docs/TV-SETUP.md).
+6. For your TV, open **Your TV**. Scan your trusted Private home network, review **Enable TV access**, then follow the Moonfin steps. The small **Get help** button on any setup step opens a current-progress prompt for Codex, without passwords or API keys. See the [TV guide](docs/TV-SETUP.md).
 
-Basic PC setup needs no administrator rights, VM, Docker, separate Node installation or Windows service. Optional TV access may ask Windows administrator permission for one restricted firewall rule. This preview is unsigned. Follow your normal Windows trust decisions; do not disable antivirus or bypass Windows protection. The complete source is available to inspect or run yourself.
+Basic PC setup needs no administrator rights, VM, Docker, separate Node installation or Windows service. Optional TV access may ask Windows administrator permission for one restricted firewall rule. This beta is unsigned. Follow your normal Windows trust decisions; do not disable antivirus or bypass Windows protection. The complete source is available to inspect or run yourself.
 
 ## A look inside
 
-Current source, shown with simulated demo data. Screenshots demonstrate the interface, not verified playback. The small **Get help** button opens a current-progress prompt on every setup step; it is coming in the next download. Release 0.7.0 has Codex help on **Your TV**.
+Shown with simulated demo data. Screenshots demonstrate the interface, not verified playback. The small **Get help** button opens a current-progress prompt on every setup step in the beta download.
 
 ![Guided setup with a discreet Get help button](assets/screenshots/setup.png)
 
@@ -65,6 +65,6 @@ Open `http://127.0.0.1:18797` after it starts. No dependency install is needed f
 
 The original isolated qualification tools remain developer tools; boot qualification is deferred. Coveframe's code is [MIT licensed](LICENSE). Separate applications retain their licenses.
 
-## Updating this preview
+## Updating Coveframe
 
 Choose **Quit Coveframe**, extract the new release into a new folder, then open its launcher. Keep the existing data folder to retain accounts and preferences. Keep your old release folder until the new one works. Coordinated vendor-app upgrades and downgrade recovery are not yet qualified; do not run two releases together.
