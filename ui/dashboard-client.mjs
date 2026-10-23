@@ -35,19 +35,19 @@ export function createHubDashboard({api,initial,onState=()=>{}}) {
   function home(){
     const media=current.media,sources=current.sources,discovery=current.discovery;
     const started=media.phase==='running';
-    return `<p class="eyebrow">YOUR PRIVATE MEDIA SPACE</p><h1 id="page-title" tabindex="-1">Make yourself at home.</h1><p class="intro">Watch something good. We’ll handle the setup.</p>
+    return `<h1 id="page-title" tabindex="-1">Make yourself at home.</h1><p class="intro">Your library, sources and a few useful shortcuts.</p>
       ${messages.home?`<p class="notice warning" role="alert">${escape(messages.home)}</p>`:''}
       <section class="hub-section watch-section"><div class="section-heading"><h2>Watch &amp; discover</h2><button id="hub-refresh" class="secondary"${busy?' disabled':''}>Refresh</button></div>
-      <p role="status">${escape(media.message||'Your media apps are stopped.')}</p>
-      <div class="actions">${started?`<a class="button primary" href="${escape(media.moonfinUrl)}" target="_blank" rel="noopener noreferrer">Open Moonfin</a>`:`<button id="hub-start" class="primary"${busy||working(media)||!media.canResume?' disabled':''}>${working(media)?'Starting…':'Start my media apps'}</button>`}
+      <p role="status">${escape(working(media)||media.phase==='failed'?media.message:started?'Your media apps are ready. Pick something to watch.':'Your setup is saved. Start your apps when you’re ready.')}</p>
+      <div class="actions">${started?`<a class="button primary" href="${escape(media.moonfinUrl)}" target="_blank" rel="noopener noreferrer">Open Moonfin</a>`:media.canResume?`<button id="hub-start" class="primary"${busy||working(media)?' disabled':''}>${working(media)?'Starting…':'Start my media apps'}</button>`:'<button data-guide="1" class="primary">Create your household</button>'}
       <button id="hub-find-titles" class="secondary">Find titles</button>${discovery.phase==='running'?`<a class="button secondary" href="${escape(discovery.url)}" target="_blank" rel="noopener noreferrer">Open discovery</a>`:`<button id="hub-discovery" class="secondary"${!started||busy||working(discovery)?' disabled':''}>${working(discovery)?'Connecting discovery…':'Connect discovery'}</button>`}</div>
-      ${!media.canResume?'<p class="hint">Finish the Household step in the setup guide to create your media apps.</p>':''}
-      <p class="hint">${escape(discovery.message||'Discovery is optional. Connect it after starting your media apps.')}</p></section>
-      <section class="hub-section"><h2>Your sources</h2><p>Recommended: TorBox + Real-Debrid. Each service needs its own active subscription.</p>
+      <p class="hint">${escape(working(discovery)||discovery.phase==='failed'?discovery.message:discovery.phase==='running'?'Discovery is connected. Search movies and shows in Find titles.':'Discovery adds movie and TV search. Connect it after starting your apps.')}</p></section>
+      <section class="hub-section"><div class="section-heading"><h2>Your sources</h2><span class="version">${sources.phase==='running'?'Connected':'Not running'}</span></div><p>TorBox + Real-Debrid is recommended. Each needs an active subscription.</p>
       <ul class="account-summary">${['torbox','real-debrid'].map(id=>`<li><strong>${id==='torbox'?'TorBox':'Real-Debrid'}</strong><span>${current.accounts[id]?.configured?'Key saved · '+(current.accounts[id].verifiedThisSession?'checked this session':'recheck on connection'):'Not connected'}</span></li>`).join('')}</ul>
-      <p role="status">${escape(sources.message||'AIOStreams is not connected.')}</p>${sources.fixture?'<p class="notice warning">QA fixture: provider connections and AIOStreams are simulated.</p>':''}
+      ${working(sources)||sources.phase==='failed'?`<p role="status">${escape(sources.message)}</p>`:''}${sources.fixture?'<p class="notice warning">UI test: provider connections are simulated.</p>':''}
       <div class="actions"><button id="hub-connect" class="primary"${busy||!started||working(sources)?' disabled':''}>${working(sources)?'Connecting…':sources.phase==='running'?'Reconnect sources':'Connect saved accounts'}</button><button data-guide="2" class="secondary">Manage accounts &amp; plans</button></div>
-      </section>
+      <details><summary>What each source covers</summary><p>TorBox checks cached searches. Real-Debrid plays completed titles in your cloud library. Availability varies by title.</p></details></section>
+      <section class="hub-section"><div class="section-heading"><h2>Watch on your TV</h2><span class="status-pill">${media.network?.phase==='running'?'Home access on':'Set up once'}</span></div><p>${media.network?.phase==='running'?`Enter <strong>${escape(media.network.url)}</strong> in Moonfin on your TV.`:'Connect your TV to Moonfin on the same home network.'}</p><button data-guide="5" class="secondary">${media.network?.phase==='running'?'TV instructions & connection check':'Set up my TV'}</button></section>
       <section class="hub-section"><h2>Make it yours</h2><p>Fine-tune Moonfin and AIOStreams anytime.</p><div class="actions"><button id="open-preferences" class="secondary">Customize</button><button data-guide="3" class="secondary">Posters &amp; ratings</button></div></section>
       <p class="hint preview-status">Preview release · <button id="open-system" class="text-button">What’s ready &amp; what’s next</button></p>`;
   }
@@ -55,8 +55,7 @@ export function createHubDashboard({api,initial,onState=()=>{}}) {
     const moon=draft.moonfin,aio=draft.aio;
     const sectionActions=section=>`<p id="${section}-message" role="status" class="settings-message">${escape(messages[section]||statusLabel(section))}</p><div class="actions"><button type="submit" class="primary">Save changes</button><button type="button" class="secondary" data-reset="${section}">Restore defaults</button></div>`;
     return `<h1 id="page-title" tabindex="-1">Settings</h1><p class="intro">A few useful choices. Change them now, or come back later.</p>
-      <p class="hint">Moonfin changes apply to your household. Reload Moonfin after saving. More themes and home-screen choices are in Moonfin’s own Settings.</p>
-      <form id="moonfin-form" class="hub-section"><fieldset${busy?' disabled':''}><legend>Moonfin</legend><p class="muted">Keep browsing calm, or add a little motion.</p>
+      <form id="moonfin-form" class="hub-section"><fieldset${busy?' disabled':''}><legend>Moonfin</legend><p class="muted">Make browsing feel like you. Changes apply to your household; reload Moonfin after saving.</p>
       ${check('moon-auto','Rotate the home banner',moon.autoAdvance,'Automatically move between featured titles.')}
       ${check('moon-trailers','Preview trailers',moon.trailerPreview,'Trailers can play while browsing. Off by default.')}
       ${check('moon-music','Play theme music',moon.themeMusic,'Play available theme music while browsing. Off by default.')}
@@ -64,10 +63,10 @@ export function createHubDashboard({api,initial,onState=()=>{}}) {
       <form id="aio-form" class="hub-section"><fieldset${busy?' disabled':''}><legend>AIOStreams</legend><p class="muted">Cached sources only. Your account connections are managed separately.</p><div class="fields">
       <label>Maximum resolution<select id="aio-resolution">${[['any','Any resolution (recommended)'],['1080p','Up to 1080p'],['720p','Up to 720p']].map(([v,l])=>`<option value="${v}"${aio.maxResolution===v?' selected':''}>${l}</option>`).join('')}</select></label>
       <label>Show results by<select id="aio-sort">${[['resolution','Highest resolution first'],['size','Smallest files first']].map(([v,l])=>`<option value="${v}"${aio.sortBy===v?' selected':''}>${l}</option>`).join('')}</select></label></div>
-      <p class="hint">A resolution limit also hides results with unknown resolution. Smaller files can reduce quality; actual playback depends on your device and connection.</p>
+      <p class="hint">Resolution limits also hide results with unknown resolution. Smaller files may reduce quality.</p>
       <details><summary>Advanced source options</summary>${check('aio-quality','Hide low-quality recordings',aio.excludeLowQuality,'Exclude CAM, TS, TC, SCR and HC HD-Rip recordings. Recommended on.')}<p class="hint">Source search and provider selection are in the setup guide.</p><button type="button" data-guide="2" class="secondary">Manage source connections</button></details>
       ${sectionActions('aio')}</fieldset></form>
-      <div class="actions">${current.media.phase==='running'?`<a class="button secondary" href="${escape(current.media.moonfinUrl)}" target="_blank" rel="noopener noreferrer">Open Moonfin for more customization</a>`:''}<button data-guide="3" class="secondary">Manage posters &amp; ratings keys</button><button id="open-downloads" class="secondary">Optional downloads · Radarr / Sonarr</button></div>`;
+      <div class="actions">${current.media.phase==='running'?`<a class="button secondary" href="${escape(current.media.moonfinUrl)}" target="_blank" rel="noopener noreferrer">Open Moonfin for more customization</a>`:''}<button data-guide="5" class="secondary">TV &amp; home network</button><button data-guide="3" class="secondary">Manage posters &amp; ratings keys</button><button id="open-downloads" class="secondary">Optional downloads · Radarr / Sonarr</button></div>`;
   }
   async function save(section,reset=false){
     if(busy||stopped)return;

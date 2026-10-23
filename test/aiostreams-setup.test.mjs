@@ -46,6 +46,7 @@ test('the local AIO configuration supports the selected pair without retired add
   assert.equal(config.services[1].credentials.apiKey, 'rd-fixture');
   assert.equal(config.excludeUncached, true);
   assert.deepEqual(config.presets.map(x => x.type), ['library', 'knaben']);
+  assert.deepEqual(config.presets[0].options.sources,['torrent']);
   assert.equal(config.presets.some(x => x.type === 'torbox-search' || x.type === 'torrentio'), false);
   assert.doesNotMatch(JSON.stringify(config.presets), /tb-fixture|rd-fixture/);
   assert.throws(() => composeAioConfig({ credentials: { unknown: 'x' } }), /supported/);

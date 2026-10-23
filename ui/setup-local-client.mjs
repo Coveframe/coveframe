@@ -18,6 +18,7 @@ export async function createLocalSetupRuntime() {
   let sources = current.sources;
   let metadata = current.metadata;
   let discovery = current.discovery;
+  const tvScreen=createTvSetup({api,getMedia:()=>media,onMedia:value=>{media=value;},getContext:()=>({accounts,sources,discovery})});
   const hub=createHubDashboard({api,initial:current,onState:latest=>{
     accounts=latest.accounts;media=latest.media;sources=latest.sources;metadata=latest.metadata;discovery=latest.discovery;
   }});
@@ -48,22 +49,24 @@ export async function createLocalSetupRuntime() {
     initialState,
     renderDashboard:(content,render,navigate)=>hub.render(content,render,navigate),
     showGuide:()=>hub.showGuide(),
-    welcome: '<p class="hint">Preview release. Runs on this PC while you are signed in. See About this PC for storage, privacy and testing status.</p>',
+    welcome: '<div class="notice welcome-note"><h2>On your PC. In your control.</h2><p>Apps run locally while you are signed in. Start with streaming; downloads and extra ratings can wait.</p><p class="hint">Preview software · no virtual machine needed.</p></div>',
     providerPanel(provider) {
       if (!['torbox', 'real-debrid'].includes(provider.id)) return '<p class="hint">Premiumize connection support is coming later. You can keep it in your plan.</p>';
       const account = accounts[provider.id];
-      const label = account.configured ? `${account.verifiedThisSession ? 'Checked this session' : 'Saved account — recheck when you return'}. ${account.plan || ''}${account.active ? ' subscription active' : ' — check subscription'}.` : 'Not connected yet.';
+      const label = account.configured ? account.verifiedThisSession ? account.active ? 'Connected' : 'Check subscription' : 'Key saved' : 'Not connected';
       const mismatch = account.configured && account.plan !== provider.selectedPlan.id;
-      return `<div class="account-connect"><p role="status">${escape(messages[provider.id] || label)}</p>
-        ${mismatch ? `<p class="notice warning">Detected plan: ${escape(account.plan || 'unknown')}. Your selection above is only a preference and does not change your subscription.${guideUsenetWarning(account, provider)}</p>` : ''}
-        ${account.expiresAt ? `<p class="hint">Subscription expiry reported by provider: ${escape(new Date(account.expiresAt).toLocaleDateString())}</p>` : ''}
-        <label for="key-${provider.id}">${account.configured ? 'Replace API key (optional)' : 'API key'}</label>
+      return `<div class="account-connect"><p class="provider-status${account.configured?' is-saved':''}${messages[provider.id]?' is-message':''}" role="status">${escape(messages[provider.id] || label)}</p>
+        ${account.configured ? '<details><summary>Manage connection</summary>' : ''}
+        ${mismatch ? `<p class="hint">Your account uses ${escape(account.plan || 'unknown')}. Selecting a plan here does not change your subscription.${guideUsenetWarning(account, provider)}</p>` : ''}
+        ${account.expiresAt ? `<p class="hint">Expires ${escape(new Date(account.expiresAt).toLocaleDateString())}</p>` : ''}
+        <label for="key-${provider.id}">${account.configured ? 'Replace API key' : 'API key'}</label>
         <input type="password" id="key-${provider.id}" autocomplete="off" spellcheck="false" maxlength="4096" aria-describedby="key-help-${provider.id}">
-        <p class="hint" id="key-help-${provider.id}">Open “Find my API key” above, copy the key, then paste it here. It will disappear from this field after you connect.</p>
+        <p class="hint" id="key-help-${provider.id}"><a href="${escape(provider.keyUrl)}" target="_blank" rel="noopener noreferrer">Find my API key</a> · Clears after connecting.</p>
         <div class="actions"><button class="primary" data-account="${provider.id}" data-action="connect"${busy ? ' disabled' : ''}>${busy ? 'Please wait…' : 'Connect account'}</button>
-        ${account.configured ? `<button class="secondary" data-account="${provider.id}" data-action="recheck"${busy ? ' disabled' : ''}>Recheck</button><button class="secondary" data-account="${provider.id}" data-action="disconnect"${busy ? ' disabled' : ''}>Disconnect</button>` : ''}</div></div>`;
+        ${account.configured ? `<button class="secondary" data-account="${provider.id}" data-action="recheck"${busy ? ' disabled' : ''}>Recheck</button><button class="secondary" data-account="${provider.id}" data-action="disconnect"${busy ? ' disabled' : ''}>Disconnect</button>` : ''}</div>${account.configured ? '</details>' : ''}</div>`;
     },
     decorate(content, state, guide, render) {
+      if(state.step===5)tvScreen.render(content,{...state,providers:guide.providers.map(x=>({id:x.id,plan:x.selectedPlan.id}))},render);
       if (working(media) || working(sources) || working(discovery)) refresh(render);
       if(state.step===1 && media.canResume) {
         const profiles=document.getElementById('profiles');
@@ -71,14 +74,14 @@ export async function createLocalSetupRuntime() {
       }
       const mediaSection = document.createElement('section');
       mediaSection.className = 'notice';
-      if ([1, 5, 6].includes(state.step)) {
-        mediaSection.innerHTML = `<h2>Your media apps</h2><p role="status">${escape(media.message)}</p>`;
+      if (state.step === 1) {
+        mediaSection.innerHTML = `<h2>${media.canResume?'Your household is saved':'Create your household'}</h2><p role="status">${escape(working(media)||media.phase==='failed'?media.message:media.phase==='running'?'Your media apps are running.':'Jellyfin keeps your library. Moonfin is where you watch.')}</p>`;
         if (media.phase === 'running') {
-          mediaSection.innerHTML += `<p>Jellyfin and Moonbase are connected. Profiles: ${media.profiles.map(escape).join(', ')}.</p><div class="actions"><a class="button secondary" href="${escape(media.moonfinUrl)}" target="_blank" rel="noopener noreferrer">Open Moonfin on this PC</a><a href="${escape(media.url)}" target="_blank" rel="noopener noreferrer">Jellyfin dashboard</a></div><p class="hint">This server is accessible on this PC only. TV network access and source playback have not been enabled or tested. Stop setup also stops this server.</p>`;
+          mediaSection.innerHTML += `<p class="hint">Profiles: ${media.profiles.map(escape).join(', ')}.</p><div class="actions"><a class="button secondary" href="${escape(media.moonfinUrl)}" target="_blank" rel="noopener noreferrer">Open Moonfin on this PC</a><a href="${escape(media.url)}" target="_blank" rel="noopener noreferrer">Jellyfin dashboard</a></div><p class="hint">${media.network?.phase==='running'?'Home TV access is on.':'Enable home TV access on Your TV.'} Stop all apps pauses the server.</p>`;
         } else if (state.step === 1 && !working(media) && media.canResume) {
-          mediaSection.innerHTML += '<p>Your household is saved securely on this PC. Start it again without entering the passwords.</p><button id="resume-media" class="primary">Start my media apps</button>';
+          mediaSection.innerHTML += '<p>Your profiles and password are saved on this PC.</p><button id="resume-media" class="primary">Start my media apps</button>';
         } else if (state.step === 1 && !working(media)) {
-          mediaSection.innerHTML += `<p>Install a separate Jellyfin 12.2 server and Moonbase 2.4 plugin in Media Hub’s private folder. Download size: about 275 MB. Your existing media server is not used.</p><div class="fields"><label>Household name (required)<input id="household-name" autocomplete="username" maxlength="40" value="Household"></label><label>Household password (required)<input id="household-password" type="password" autocomplete="new-password" minlength="12" maxlength="256"></label></div><p class="hint">Use at least 12 characters. Your selected viewer profiles share this password, have separate watch history and cannot administer the server. Setup keeps a separate private administrator credential.</p><button id="setup-media" class="primary">Set up Jellyfin &amp; Moonbase</button>`;
+          mediaSection.innerHTML += `<p class="hint">Downloads Jellyfin + the Moonbase plugin (about 275 MB) into Coveframe's private app folder.</p><div class="fields"><label>Household name<input id="household-name" autocomplete="username" maxlength="40" value="Household" required></label><label>Household password<input id="household-password" type="password" autocomplete="new-password" minlength="12" maxlength="256" required aria-describedby="household-password-help"></label></div><p class="hint" id="household-password-help">At least 12 characters. Your viewer profiles share this password.</p><button id="setup-media" class="primary">Create household & install apps</button><details><summary>What gets installed?</summary><p class="hint">A separate Jellyfin 12.2 server and Moonbase 2.4 plugin. Existing media servers are not used. Viewer profiles have separate watch history and cannot administer the server. Setup creates a private administrator credential.</p></details>`;
         }
         content.append(mediaSection);
         const resume = document.getElementById('resume-media');
@@ -102,10 +105,10 @@ export async function createLocalSetupRuntime() {
           } catch (error) { media = { phase: 'failed', message: error.message }; render(); }
         };
       }
-      if ([2, 6].includes(state.step) && guide.providers.length) {
+      if (state.step === 2 && guide.providers.length) {
         const sourceSection = document.createElement('section'); sourceSection.className = 'notice';
         const ready = media.phase === 'running' && guide.providers.every(p => accounts[p.id]?.configured && accounts[p.id]?.active);
-        sourceSection.innerHTML = `<h2>Connect AIOStreams</h2><p>AIOStreams runs on this PC and uses the accounts you selected above. Your keys go to the local app and the relevant debrid provider. No hosted addon receives them.</p><p>Start with your existing cloud library. Optionally enable cached source search through AIOStreams’ built-in Knaben integration; search titles and IDs are sent to that public indexer. Availability depends on the sources and your subscriptions.</p><label><input type="checkbox" id="sourceSearch"${state.sourceSearch ? ' checked' : ''}>Also search public indexes for cached streams</label><p role="status">${escape(sources.message || 'Not connected yet.')}</p>${!ready ? '<p>Start your media apps and connect each selected account to continue.</p>' : ''}<button id="setup-sources" class="primary"${!ready || working(sources) || busy ? ' disabled' : ''}>${sources.phase === 'running' ? 'Update source connections' : 'Connect my selected accounts'}</button><p class="hint">Only cached results are offered. No real-content playback has been verified.</p>`;
+        sourceSection.innerHTML = `<div class="section-heading"><h2>Connect your library to your sources</h2><span class="status-pill">AIOStreams</span></div><p class="hint">TorBox checks cached searches. Real-Debrid plays completed titles in your cloud library.</p><p role="status">${escape(working(sources)||sources.phase==='failed'?sources.message:sources.phase==='running'?'Sources connected.':'Not connected yet.')}</p>${!ready ? '<p class="hint">Create your household and connect accounts above first.</p>' : ''}<button id="setup-sources" class="secondary"${!ready || working(sources) || busy ? ' disabled' : ''}>${sources.phase === 'running' ? 'Update connections' : 'Connect AIOStreams'}</button><details><summary>Source search & privacy</summary><label class="check"><input type="checkbox" id="sourceSearch"${state.sourceSearch ? ' checked' : ''}><span>Search public indexes<span class="hint">Sends title names and IDs to Knaben.</span></span></label><p class="hint">Provider keys go directly from this PC to TorBox or Real-Debrid. AIOStreams uses a local connection token. Unknown Real-Debrid sources stay hidden; setup does not use a third-party key relay.</p></details>`;
         content.append(sourceSection);
         if (sources.fixture) sourceSection.insertAdjacentHTML('afterbegin','<p class="warning">QA fixture: provider checks and AIO source results are simulated. No real provider key or playback is being tested.</p>');
         document.getElementById('setup-sources').onclick = async () => {
@@ -115,9 +118,9 @@ export async function createLocalSetupRuntime() {
           catch (error) { document.getElementById('announcement').textContent = error.message; render(); }
         };
       }
-      if ([4,6].includes(state.step)) {
+      if (state.step === 4) {
         const section=document.createElement('section');section.className='notice';
-        section.innerHTML=`<h2>Discover with Seerr</h2><p>Browse films and TV in Moonfin using your Jellyfin profile. No extra subscription or personal metadata API key is needed for Seerr.</p><p role="status">${escape(discovery?.message||'Optional. Start Jellyfin first, then connect discovery.')}</p><button id="setup-discovery" class="secondary"${media.phase!=='running'||working(discovery)||busy?' disabled':''}>${discovery?.phase==='running'?'Update discovery connection':'Connect discovery'}</button><p class="hint">After saving setup, use Find titles to search by name and add a movie or aired TV season automatically. In Moonfin, open Settings → Integrations → Seerr and sign in with your household profile once. Native Seerr requests stay off; optional downloads are connected later in Media Hub Settings.</p>`;
+        section.innerHTML=`<div class="section-heading"><h2>Find your next watch</h2><span class="status-pill">Optional · Seerr</span></div><p>Search movies and TV by name. No extra subscription or personal API key needed.</p><p class="hint" role="status">${escape(working(discovery)||discovery?.phase==='failed'?discovery.message:discovery?.phase==='running'?'Discovery connected.':media.phase==='running'?'Ready to connect.':'Start your media apps to connect discovery.')}</p><button id="setup-discovery" class="secondary"${media.phase!=='running'||working(discovery)||busy?' disabled':''}>${discovery?.phase==='running'?'Update discovery connection':'Connect discovery'}</button><details><summary>How discovery works</summary><p class="hint">After saving, open Find titles to add a movie or aired TV season. For Moonfin browsing, open Settings → Integrations → Seerr and sign in with your household profile once. Seerr download requests stay off. Optional downloads are in Coveframe Settings.</p></details>`;
         content.append(section);
         document.getElementById('setup-discovery').onclick=async()=>{
           document.getElementById('setup-discovery').disabled=true;
@@ -126,12 +129,12 @@ export async function createLocalSetupRuntime() {
         };
       }
       if (state.step === 3) {
-        const section = document.createElement('section'); section.className = 'notice';
-        section.innerHTML = '<h2>Optional keys for this household</h2><p>Basic Jellyfin posters work without these. Saved keys are encrypted on this PC and shared with your own Moonbase plugin. TMDB also supplies title matching to local AIOStreams. Saving a key does not verify its quota or subscription.</p>' + ['tmdb','mdblist'].map(id => {
+        const section = document.createElement('section'); section.className = 'metadata-connections';
+        section.innerHTML = '<h3>Your own keys</h3><p class="hint">Saved locally for Moonbase. TMDB also supplies AIOStreams title matching. Saving does not verify quota or subscription.</p>' + ['tmdb','mdblist'].map(id => {
           const label = id === 'tmdb' ? 'TMDB' : 'MDBList';
           return `<details><summary>${label}: ${metadata[id].configured ? 'key saved' : 'optional, no key saved'}</summary><p>${id === 'tmdb' ? 'Copy the API key (v3 auth) from the TMDB API page linked above. Use your own approved application details and follow TMDB attribution requirements.' : 'Copy your own MDBList key from Preferences using the link above. Start with the free account.'}</p><label for="metadata-${id}">${label} API key</label><input id="metadata-${id}" type="password" autocomplete="off" spellcheck="false" maxlength="256"><div class="actions"><button data-metadata="${id}" data-action="connect" class="secondary"${busy ? ' disabled' : ''}>Save ${label} key</button>${metadata[id].configured ? `<button data-metadata="${id}" data-action="disconnect" class="secondary"${busy ? ' disabled' : ''}>Remove ${label} key</button>` : ''}</div><p role="status">${escape(metadataMessages[id] || '')}</p></details>`;
-        }).join('') + '<p class="hint">Changing a metadata key clears the current AIOStreams connection. Use “Connect my selected accounts” on the providers step to apply the updated settings.</p>';
-        content.append(section);
+        }).join('') + '<p class="hint">Changing a key clears the AIOStreams connection. Reconnect it on Your providers afterward.</p>';
+        (content.querySelector('.optional-options')||content).append(section);
         for (const button of section.querySelectorAll('[data-metadata]')) button.onclick = async () => {
           if (busy) return;
           const id = button.dataset.metadata, action = button.dataset.action;
@@ -145,10 +148,10 @@ export async function createLocalSetupRuntime() {
           finally { busy = false; render(); }
         };
       }
-      if ([4,6].includes(state.step) && sources.phase === 'running') {
-        const section = document.createElement('section'); section.className = 'notice';
+      if (state.step === 4 && sources.phase === 'running') {
+        const section = document.createElement('section'); section.className = 'advanced-library';
         section.innerHTML = '<h2>Add a streaming title to Jellyfin</h2><p>Use an IMDb title ID, for example tt followed by its digits. This adds a library link; it does not download the film or prove a cached source exists.</p><label>Title<input id="library-title" maxlength="200"></label><label>IMDb ID<input id="library-imdb" placeholder="tt…" maxlength="14"></label><label>Movie or TV episode<select id="library-type"><option value="movie">Movie</option><option value="series">TV episode</option></select></label><p class="hint">For a TV episode, enter its season and episode numbers.</p><div class="fields"><label>Season<input id="library-season" type="number" min="0" max="9999" value="1"></label><label>Episode<input id="library-episode" type="number" min="1" max="99999" value="1"></label></div><button id="add-library" class="secondary">Add to my library</button><p id="library-result" role="status"></p>';
-        section.innerHTML = '<p>After saving setup, use Find titles to search by name and add a movie or an aired TV season automatically.</p><details><summary>Advanced: add a title by IMDb ID</summary>' + section.innerHTML + '</details>';
+        section.innerHTML = '<details><summary>Advanced: add a title by IMDb ID</summary><p>For everyday browsing, use Find titles after saving setup.</p>' + section.innerHTML + '</details>';
         content.append(section);
         document.getElementById('add-library').onclick = async () => {
           const button = document.getElementById('add-library'); button.disabled = true;
@@ -181,7 +184,7 @@ export async function createLocalSetupRuntime() {
       if (state.step === 6) {
         const section = document.createElement('div');
         section.className = 'notice';
-        section.innerHTML = '<h3>Your account connections</h3>' + guide.providers.map(p => `<p>${escape(p.name)}: ${accounts[p.id]?.configured ? 'key saved' : 'not connected'}${accounts[p.id]?.plan ? ' · detected plan: ' + escape(accounts[p.id].plan) : ''}</p>`).join('') + '<p class="hint">Account checks do not verify source coverage or TV playback.</p>';
+        section.innerHTML = '<h2>Connections at a glance</h2><ul class="account-summary"><li><strong>Household</strong><span>'+(media.canResume?'Saved on this PC':'Not created yet')+'</span></li>' + guide.providers.map(p => `<li><strong>${escape(p.name)}</strong><span>${accounts[p.id]?.configured ? 'Key saved' : 'Not connected'}</span></li>`).join('') + '<li><strong>AIOStreams</strong><span>'+(sources.phase==='running'?'Connected':'Not running')+'</span></li></ul><p class="hint">Use the step list to change anything. Dashboard shows what to start next.</p>';
         content.append(section);
       }
     },

@@ -52,7 +52,8 @@ export function composeAioConfig({ credentials, sourceSearch = false, tmdbApiKey
   if (!entries.length) throw Error('Connect at least one debrid account first.');
   if (entries.some(([id, key]) => !serviceIds[id] || typeof key !== 'string' || !key.length)) throw Error('Choose supported connected accounts.');
   const preset = type => ({ type, instanceId: `media-hub-${type}`, enabled: true,
-    options: { name: type === 'library' ? 'My cloud library' : 'Cached source search', timeout: 30000, useMultipleInstances: false } });
+    options: { name: type === 'library' ? 'My cloud library' : 'Cached source search', timeout: 30000, useMultipleInstances: false,
+      ...(type==='library'?{sources:['torrent']}:{}) } });
   return {
     addonName: 'Media Hub sources',
     services: entries.map(([id, key]) => ({ id: serviceIds[id], enabled: true, credentials: { apiKey: key } })),

@@ -33,6 +33,21 @@ test('automatic download routes expose progress, reject unsupported input, and s
  assert.equal((await call('/api/downloads/automatic/stop',{})).status,200);assert.equal(stops,2);
 });
 
+test('TV setup is authenticated, validates its selection and reports safe runtime errors',async t=>{
+ let selection;
+ const media={status:()=>({phase:'running',network:{phase:'off'}}),stop:async()=>{},homeNetwork:async(action,data)=>{
+  if(action==='enable'){selection=data;if(data.confirmation!=='ALLOW HOME TV')throw Error('Review the firewall permission first.');}
+  return {phase:'running',url:'http://192.168.1.22:18799'};
+ }};
+ const {app,call}=await launch(t,media);
+ assert.equal((await fetch(app.url+'/api/tv/scan',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})).status,403);
+ assert.equal((await call('/api/tv/enable',{adapterId:7,url:'http://evil.example'})).status,400);
+ assert.equal((await call('/api/tv/enable',{adapterId:7})).status,422);
+ assert.equal((await call('/api/tv/enable',{adapterId:7,confirmation:'ALLOW HOME TV'})).status,200);
+ assert.equal(selection.adapterId,7);
+ assert.equal((await call('/api/tv/check',{})).status,200);
+});
+
 test('Stop all apps keeps the wizard available, blocks concurrent starts and attempts every owned runtime',async t=>{
  let phase='running',release;const stopped=new Set();
  const media={status:()=>({phase,canResume:true}),resume:()=>({ok:true}),stop:async()=>{stopped.add('media');phase='stopped';}};

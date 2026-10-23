@@ -1,7 +1,23 @@
 // Local authenticated title search and optional downloads; credentials never persist in the browser.
+export function confirmDownloadApps({document=globalThis.document,configured=false}={}){
+  const dialog=document.createElement('dialog');
+  dialog.className='download-confirmation';dialog.setAttribute('aria-labelledby','download-confirm-title');
+  dialog.setAttribute('aria-describedby','download-confirm-description');
+  dialog.innerHTML=`<h2 id="download-confirm-title">${configured?'Start download apps?':'Install and start download apps?'}</h2>
+    <p id="download-confirm-description">This runs Radarr, Sonarr, Prowlarr and Decypharr.exe on your PC.</p>
+    <p>Decypharr connects Radarr and Sonarr to TorBox + Real-Debrid. It comes from the <a href="https://github.com/sirrobot01/decypharr/releases/tag/v2.7" target="_blank" rel="noopener noreferrer">official GitHub release</a> and is unsigned.</p>
+    <p class="hint">${configured?'Existing download jobs may resume.':'No movie or show is requested during setup.'} Cancel keeps these apps off.</p>
+    <div class="actions"><button data-cancel class="secondary" autofocus>Cancel</button><button data-confirm class="primary">${configured?'Start download apps':'Install & start'}</button></div>`;
+  return new Promise(resolve=>{
+    dialog.addEventListener('close',()=>{const approved=dialog.returnValue==='approved';dialog.remove();resolve(approved);},{once:true});
+    dialog.querySelector('[data-cancel]').onclick=()=>dialog.close('');
+    dialog.querySelector('[data-confirm]').onclick=()=>dialog.close('approved');
+    document.body.append(dialog);dialog.showModal();dialog.querySelector('[data-cancel]').focus();
+  });
+}
 export function createLibraryScreens({api,getState,onState,onHome,onDownloads,onAccounts}){
   let root,view,stopped=false,busy=false,query='',results=null,selected=null,season,message='';
-  const addresses={};let timer,storagePath,providers;
+  const addresses={};let timer,storagePath,providers,confirming=false;
   const working=()=>['preparing','downloading','starting','configuring'].includes(getState().managedDownloads?.phase);
   const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const alive=()=>!stopped&&root?.isConnected;
@@ -15,8 +31,8 @@ export function createLibraryScreens({api,getState,onState,onHome,onDownloads,on
     const state=getState(),ready=state.discovery.phase==='running';
     const manager=selected?.type==='movie'?'radarr':'sonarr',download=state.downloads?.[manager];
     return `<h1 id="page-title" tabindex="-1">Find titles</h1><p class="intro">Search by name. Add a movie or an aired TV season to your Jellyfin library.</p>
-      ${state.sources.fixture?'<p class="notice warning">QA fixture: source accounts are simulated. Library and discovery apps are real; no playback is being tested.</p>':''}
-      <p class="hint">Search uses your local discovery app and its metadata services. Streaming uses your connected TorBox + Real-Debrid accounts. Cached availability is checked when you play.</p>
+      ${state.sources.fixture?'<p class="notice warning">UI test: source accounts are simulated. Playback is not being tested.</p>':''}
+      <details><summary>How search &amp; playback work</summary><p>Search uses your discovery app and its metadata services. Streaming uses your connected sources. Cached availability is checked when you play.</p></details>
       <p role="status" tabindex="-1">${escape(message)}</p>
       ${!ready?'<div class="notice"><p>Start your media apps and connect discovery from Dashboard first.</p><button id="library-dashboard" class="primary">Go to Dashboard</button></div>':`
       <form id="title-search" class="hub-section"><label for="title-query">Movie or TV show</label><div class="search-controls"><input id="title-query" type="search" minlength="2" maxlength="120" value="${escape(query)}" required placeholder="Search for a title"><button class="primary"${busy?' disabled':''}>${busy?'Working…':'Search'}</button></div></form>
@@ -33,22 +49,23 @@ export function createLibraryScreens({api,getState,onState,onHome,onDownloads,on
     const state=getState(),managed=state.managedDownloads||{},active=managed.phase==='running',pending=working();
     if(providers===undefined)providers=(managed.providers?.length?managed.providers:['torbox','real-debrid']).filter(id=>state.accounts?.[id]?.configured);
     storagePath??=managed.storagePath||'';
-    return `<h1 id="page-title" tabindex="-1">Optional downloads</h1><p class="intro">Keep files for offline viewing. Streaming with TorBox + Real-Debrid stays the recommended starting point.</p>
+    return `<h1 id="page-title" tabindex="-1">Optional downloads</h1><p class="intro">Start with streaming. Add downloads whenever you want local copies.</p>
+      <div class="download-choices"><section><h2>Streaming only <span class="hint">Recommended</span></h2><p>Browse and watch in Moonfin with TorBox + Real-Debrid. No Radarr or Sonarr needed.</p><p class="hint">Needs internet and an available source. New episodes aren't saved automatically.</p></section><section><h2>Add Radarr + Sonarr</h2><p>Radarr collects movies. Sonarr watches for new TV episodes. Both organize saved files in Jellyfin.</p><p class="hint">Uses disk space. Files that finish downloading can play offline.</p></section></div>
       ${state.downloads?.fixture?'<p class="notice warning">QA fixture: Radarr and Sonarr responses are simulated. No real download will start.</p>':''}
       <p role="status" tabindex="-1">${escape(message)}</p>
       <section class="hub-section" aria-label="Automatic downloads"><h2>Set up downloads automatically</h2>
-      ${managed.fixture?'<p class="notice warning">QA: provider accounts are simulated and their keys are omitted from the download client. App and indexer checks use real local apps. No provider download is being tested.</p>':''}
-      <p>Media Hub downloads and connects Radarr, Sonarr, Decypharr and Prowlarr on this PC. It chooses 1080p quality, creates movie and TV folders, and connects those folders to Jellyfin. No internal API keys to copy.</p>
-      <p><strong>TorBox + Real-Debrid is recommended.</strong> Reuse the accounts you connected in setup. You can also use just one.</p>
-      <p class="hint">Optional app downloads total about 435 MB; first setup can take several minutes. Downloaded media needs additional disk space. Knaben supplies public search results without another subscription or API key; searches contact that service. Provider availability and your first completed download still need verification.</p>
+      ${managed.fixture?'<p class="notice warning">UI test: provider credentials are omitted. No provider download is being tested.</p>':''}
+      <p>Installs four apps on this PC (about 435 MB):</p>
+      <ul class="install-apps"><li><a href="https://radarr.video/" target="_blank" rel="noopener noreferrer">Radarr</a><span>Movie requests</span></li><li><a href="https://sonarr.tv/" target="_blank" rel="noopener noreferrer">Sonarr</a><span>TV requests</span></li><li><a href="https://github.com/sirrobot01/decypharr/releases/tag/v2.7" target="_blank" rel="noopener noreferrer">Decypharr.exe</a><span>Downloads through TorBox / Real-Debrid · unsigned</span></li><li><a href="https://prowlarr.com/" target="_blank" rel="noopener noreferrer">Prowlarr</a><span>Source search</span></li></ul>
+      <details><summary>Folders, privacy and Windows prompts</summary><p class="hint">Setup uses your connected providers, chooses 1080p, creates movie / TV folders and links them to Jellyfin. Keys stay in private local app files. Knaben receives searches.</p><p class="hint">Apps run while Coveframe is open. Stop all apps stops them and keeps your files. They do not need administrator access or inbound firewall access. If Windows shows a warning, check the app and official source; do not bypass Windows protection.</p><p class="hint">Setup does not request movies or shows. Completed downloads and imports still need testing.</p></details>
       <p role="status" aria-live="polite">${escape(managed.message||'Ready when you want to keep local files.')}</p>
       <form id="automatic-downloads"><fieldset${busy||pending||active?' disabled':''}>
       ${['torbox','real-debrid'].map(id=>`<label class="check"><input type="checkbox" data-download-provider="${id}"${providers.includes(id)?' checked':''}${!state.accounts?.[id]?.configured?' disabled':''}><span>${id==='torbox'?'TorBox':'Real-Debrid'}${!state.accounts?.[id]?.configured?' · connect in Manage accounts first':''}</span></label>`).join('')}
       <details><summary>Media storage folder</summary><label for="automatic-storage">Local media folder<input id="automatic-storage" value="${escape(storagePath)}" maxlength="190" required${managed.configured?' readonly':''}></label><p class="hint">Choose an empty local folder for first setup. Keep this folder for restarts; moving existing files is not automatic.</p></details>
-      <button class="primary"${!providers.length||state.media.phase!=='running'?' disabled':''}>${active?'Download apps running':pending?'Setting up downloads…':managed.configured?'Start / repair download apps':'Set up downloads automatically'}</button></fieldset></form>
+      <button class="primary"${!providers.length||state.media.phase!=='running'?' disabled':''}>${active?'Download apps running':pending?'Setting up downloads…':managed.configured?'Start / repair download apps':'Install & connect these 4 apps'}</button></fieldset></form>
       ${state.media.phase!=='running'?'<p class="notice">Start your media apps from Dashboard first.</p>':''}
       <div class="actions"><button id="download-accounts" class="secondary"${pending?' disabled':''}>Manage accounts</button>${active||pending?'<button id="automatic-stop" class="secondary">Stop download apps</button>':''}<button id="automatic-refresh" class="secondary">Refresh status</button></div>
-      <p class="hint">Keep Media Hub running during downloads. Stopping keeps files and setup for restart. Only cached sources are enabled; subscriptions do not guarantee a match. Initial setup does not request any movies or shows.</p></section>
+      <p class="hint">Only cached sources are enabled. Subscriptions do not guarantee a match.</p></section>
       <details><summary>Advanced · existing apps and connection checks</summary>
       ${['radarr','sonarr'].map(id=>{
         const app=id==='radarr'?'Radarr':'Sonarr',s=state.downloads?.[id]||{},defaultUrl='http://127.0.0.1:'+(id==='radarr'?'7878':'8989');
@@ -60,7 +77,7 @@ export function createLibraryScreens({api,getState,onState,onHome,onDownloads,on
           ${s.profiles?.length&&s.folders?.length?`<form data-options="${id}"><fieldset${busy?' disabled':''}><div class="fields"><label>Quality profile<select id="${id}-profile"><option value="">Choose a profile</option>${s.profiles.map(x=>`<option value="${x.id}"${s.profileId===x.id?' selected':''}>${escape(x.name)}</option>`).join('')}</select></label><label>Download folder<select id="${id}-folder"><option value="">Choose a folder</option>${s.folders.map(x=>`<option value="${x.id}"${s.folderId===x.id?' selected':''}>${escape(x.path)}</option>`).join('')}</select></label></div><button class="secondary">Save ${app} choices</button></fieldset></form>`:''}
           <div class="actions">${s.configured?`<button data-recheck="${id}" class="secondary"${busy?' disabled':''}>Recheck ${app}</button><button data-disconnect="${id}" class="secondary"${busy?' disabled':''}>Disconnect ${app}</button>`:''}<a class="button secondary" href="${id==='radarr'?'https://wiki.servarr.com/radarr/installation/windows':'https://wiki.servarr.com/sonarr/installation/windows'}" target="_blank" rel="noopener noreferrer">${app} setup instructions</a></div></section>`;
       }).join('')}</details>
-      <p class="hint">Media Hub connects your chosen folder to its own Jellyfin server when you request a download. Completed files appear through Jellyfin’s folder monitoring. Keep Media Hub running while watching. Disconnecting removes the saved key; it keeps apps, files and library folders.</p>`;
+      `;
   }
   function draw(){
     clearTimeout(timer);if(!alive())return;root.innerHTML=view==='library'?library():downloads();
@@ -83,7 +100,12 @@ export function createLibraryScreens({api,getState,onState,onHome,onDownloads,on
       find('automatic-refresh').onclick=()=>run(async()=>{await refresh();return 'Download status refreshed.';},'Checking status…');
       if(find('automatic-stop'))find('automatic-stop').onclick=()=>run(async()=>{await api('/api/downloads/automatic/stop',{});await refresh();return 'Download apps stopped. Files and setup are kept.';},'Stopping managed download apps…');
       root.querySelectorAll('[data-download-provider]').forEach(input=>input.onchange=()=>{providers=[...root.querySelectorAll('[data-download-provider]:checked')].map(x=>x.dataset.downloadProvider);storagePath=find('automatic-storage').value;draw();});
-      find('automatic-downloads').onsubmit=event=>{event.preventDefault();storagePath=find('automatic-storage').value.trim();run(async()=>{await api('/api/downloads/automatic/start',{providers,storagePath});await refresh();return 'Automatic setup started. Progress appears below.';},'Starting automatic setup…');};
+      find('automatic-downloads').onsubmit=async event=>{
+        event.preventDefault();if(busy||confirming||stopped)return;storagePath=find('automatic-storage').value.trim();confirming=true;
+        let approved;try{approved=await confirmDownloadApps({configured:getState().managedDownloads?.configured});}finally{confirming=false;}
+        if(!approved||!alive())return;
+        run(async()=>{await api('/api/downloads/automatic/start',{providers,storagePath});await refresh();return 'Automatic setup started. Progress appears below.';},'Starting automatic setup…');
+      };
       if(working())timer=setTimeout(async()=>{if(!alive())return;try{await refresh();draw();}catch{message='Could not refresh setup progress. Use Refresh status.';draw();}},1500);
       root.querySelectorAll('[data-arr]').forEach(form=>form.onsubmit=event=>{
         event.preventDefault();const id=form.dataset.arr,url=find(id+'-url').value.trim(),credential=find(id+'-key').value.trim();find(id+'-key').value='';

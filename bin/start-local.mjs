@@ -2,6 +2,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { startSetupServer } from '../src/setup-server.mjs';
+import { resolveSetupDirectory } from '../src/setup-directory.mjs';
 
 // The GUI launcher starts this process hidden. No administrator rights or global installs.
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -12,7 +13,7 @@ if (process.platform !== 'win32' || !process.env.LOCALAPPDATA) {
 } else {
   try {
     const app = await startSetupServer({
-      directory: process.env.MEDIA_HUB_DATA_DIR || resolve(process.env.LOCALAPPDATA, 'MediaHub', 'Setup'),
+      directory: await resolveSetupDirectory({directory:process.env.MEDIA_HUB_DATA_DIR}),
       appDirectory:root,
       instanceId, onStop: () => { process.exitCode = 0; },
     });

@@ -12,6 +12,7 @@ import { startPlaybackGateway } from './playback-gateway.mjs';
 import { writeLibraryItem,validateLibraryItem } from './library-items.mjs';
 import {connectDownloadLibrary} from './download-library.mjs';
 import { makePrivateDirectory } from './private-directory.mjs';
+import {createHomeNetwork} from './home-network.mjs';
 
 const baseUrl = 'http://127.0.0.1:18798';
 const auth = 'MediaBrowser Client="Media Hub", Device="Local wizard", DeviceId="media-hub-owned-runtime", Version="0.2.0"';
@@ -26,6 +27,12 @@ export async function createLocalMedia({ directory, cacheDirectory } = {}) {
   let abort;
   let systemToken, gateway;
   let state = { phase: 'not-started', message: 'Set up Jellyfin and Moonbase on this PC.', streamingReady: false, beforeSignIn: 'deferred' };
+  const tv=await createHomeNetwork({directory:join(root,'HomeNetwork'),isMediaRunning:()=>state.phase==='running',onAddress:async address=>{
+    if(state.phase!=='running'||!systemToken)return;
+    const route=`/Plugins/${moonbaseId}/Configuration`,config=await request(route,'GET',undefined,systemToken);
+    await request(route,'POST',{...config,WebDefaultServerUrl:address||baseUrl,WebForcedServerUrl:address?'':baseUrl},systemToken);
+    state={...state,localOnly:!address};
+  }});
   async function request(route, method = 'GET', data, token) {
     const response = await fetch(baseUrl + route, { method, redirect: 'error', signal: AbortSignal.any([abort.signal, AbortSignal.timeout(20000)]),
       headers: { Authorization: auth + (token ? `, Token="${token}"` : ''), ...(token ? { 'X-Emby-Token': token } : {}), 'Content-Type': 'application/json' },
@@ -125,6 +132,12 @@ export async function createLocalMedia({ directory, cacheDirectory } = {}) {
         { windowsHide: true, stdio: 'ignore', cwd: root });
       let spawnFailed = false;
       child.once('error', () => { spawnFailed = true; });
+      child.once('exit',()=>{
+        if(!abort.signal.aborted&&state.phase==='running'){
+          state={...state,phase:'failed',message:'Jellyfin stopped unexpectedly. Start your media apps again.',streamingReady:false};
+          tv.stop().catch(()=>{});
+        }
+      });
       let ready = false;
       for (let attempt = 0; attempt < 90; attempt++) {
         abort.signal.throwIfAborted();
@@ -139,6 +152,7 @@ export async function createLocalMedia({ directory, cacheDirectory } = {}) {
         url: baseUrl, moonfinUrl: baseUrl + '/Moonfin/Web/', localOnly: true, pid: child.pid };
       await applyMetadata(metadataKeys);
       try{await applyPreferences(preferences);}catch{state={...state,preferencesError:true};}
+      await tv.resume();
     } catch (error) {
       try { await stopChild(); } catch {}
       state = { ...state, phase: abort.signal.aborted ? 'stopped' : 'failed', message: abort.signal.aborted ? 'Media setup stopped. Reopen Media Hub to continue.' : error.message || 'Media setup failed. Preserve its files for recovery.', streamingReady: false,
@@ -154,11 +168,13 @@ export async function createLocalMedia({ directory, cacheDirectory } = {}) {
       return { ok: true };
   }
   return {
-    status: () => ({ ...structuredClone(state), canResume: Boolean(secrets.household), ...(secrets.household ? { savedProfileCount:secrets.household.profiles } : {}) }),
+    status: () => ({ ...structuredClone(state), localOnly:tv.status().phase!=='running', network:tv.status(), canResume: Boolean(secrets.household), ...(secrets.household ? { savedProfileCount:secrets.household.profiles } : {}) }),
     start,
     resume(keys,preferences) { if (!secrets.household) throw Error('Create your household first.'); return start(secrets.household, keys,preferences); },
     applyMetadata,
     applyPreferences,
+    homeNetwork(action,data){if(!['scan','enable','disable','check'].includes(action))throw Error('Choose a supported TV action.');return tv[action](data);},
+    removeHomeNetworkPermission:()=>tv.removePermission(),
     async withDiscoveryAdmin(operation) {
       if (state.phase !== 'running' || !systemToken) throw Error('Start your media apps first.');
       const users = await request('/Users', 'GET', undefined, systemToken);
@@ -204,6 +220,7 @@ export async function createLocalMedia({ directory, cacheDirectory } = {}) {
     },
     async stop() {
       abort?.abort();
+      await tv.stop();
       if (gateway) { await gateway.close(); gateway = null; }
       if (job) await job;
       await stopChild();

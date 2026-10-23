@@ -8,6 +8,7 @@ import { obtainMediaPackage, extractMediaPackage, mediaPackages } from './media-
 import { provisionAio,updateAioPreferences } from './aiostreams-setup.mjs';
 import {recommendedPreferences} from './preferences.mjs';
 import { makePrivateDirectory } from './private-directory.mjs';
+import {startLocalDebrid} from './local-debrid.mjs';
 
 const base = 'http://127.0.0.1:18800';
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -15,7 +16,7 @@ export async function createAioRuntime({ directory, cacheDirectory }) {
   const root = join(directory, 'AIOStreams');
   const vault = createWindowsVault(join(root, 'Secrets'));
   let secrets = await vault.read();
-  let child, job, abort;
+  let child, job, abort, providerBridge;
   const operatorSession={};
   let state = { phase: 'not-started', configured: false, playbackVerified: false };
   async function request(path, method = 'GET', body, headers = {}) {
@@ -40,6 +41,15 @@ export async function createAioRuntime({ directory, cacheDirectory }) {
   }
   async function run(options) {
     try {
+      // Replace every real provider credential before passing configuration to AIO.
+      // Even a stale/upstream relay setting can only receive a disposable token.
+      await providerBridge?.close();providerBridge=null;
+      const accounts={},localCredentials={};
+      for(const [id,credential] of Object.entries(options.credentials||{})){
+        const name=id==='real-debrid'?'realdebrid':id,token=randomBytes(32).toString('hex');
+        accounts[name]={credential,token};localCredentials[id]=token;
+      }
+      providerBridge=await startLocalDebrid({accounts});
       if (!child || child.exitCode !== null || child.signalCode !== null) {
         await new Promise((yes, no) => {
           const probe = createServer();
@@ -77,6 +87,7 @@ export async function createAioRuntime({ directory, cacheDirectory }) {
         const env = Object.fromEntries(['SystemRoot', 'WINDIR', 'PATH', 'TEMP', 'TMP', 'USERPROFILE', 'LOCALAPPDATA', 'APPDATA', 'ProgramData']
           .filter(x => process.env[x]).map(x => [x, process.env[x]]));
         Object.assign(env, { NODE_ENV: 'production', LOG_LEVEL:'error', LOG_SENSITIVE_INFO:'false', PORT: '18800', BASE_URL: base, INTERNAL_URL: base,
+          BUILTIN_STREMTHRU_URL:providerBridge.url,TORBOX_USENET_VIA_STREMTHRU:'true',
           SECRET_KEY: secrets.secretKey, DATABASE_URI: 'sqlite://./data/db.sqlite',
           AIOSTREAMS_AUTH: `MediaHubSystem:${secrets.operatorPassword}`, AIOSTREAMS_AUTH_PERMISSIONS: 'MediaHubSystem=admin' });
         delete operatorSession.cookie;
@@ -99,11 +110,12 @@ export async function createAioRuntime({ directory, cacheDirectory }) {
           { Cookie: login.cookie, Authorization: 'Basic ' + Buffer.from(`${secrets.account.uuid}:${secrets.accountPassword}`).toString('base64') });
         if (!cleared.data?.success) throw Error('Could not clear the local AIOStreams connections.');
         await stopChild();
+        await providerBridge.close();providerBridge=null;
         state = { phase: 'stopped', configured: false, playbackVerified: false, message: 'Local source connections cleared.' };
         return;
       }
       state = { ...state, phase: 'configuring', message: 'Connecting the selected accounts to local AIOStreams…' };
-      const result = await provisionAio({ request, ...options, operatorPassword: secrets.operatorPassword,
+      const result = await provisionAio({ request, ...options,credentials:localCredentials, operatorPassword: secrets.operatorPassword,
         accountPassword: secrets.accountPassword, account: secrets.account,session:operatorSession });
       secrets.account = result.account;
       await vault.write(secrets);
@@ -111,6 +123,7 @@ export async function createAioRuntime({ directory, cacheDirectory }) {
         preferences:structuredClone(options.preferences||recommendedPreferences().aio) };
     } catch (error) {
       try { await stopChild(); } catch {}
+      await providerBridge?.close();providerBridge=null;
       state = { phase: abort.signal.aborted ? 'stopped' : 'failed', configured: false,
         message: abort.signal.aborted ? 'AIOStreams setup stopped. Its data is preserved.' : error.message, playbackVerified: false };
       if (options.clear) throw Error('AIOStreams connections could not be cleared. Retry before changing the saved account.');
@@ -147,6 +160,6 @@ export async function createAioRuntime({ directory, cacheDirectory }) {
       const account = secrets.account;
       return (await request(`/stremio/${encodeURIComponent(account.uuid)}/${encodeURIComponent(account.encryptedPassword)}/stream/${type}/${encodeURIComponent(id)}.json`)).data;
     },
-    async stop() { abort?.abort(); if (job) {try{await job;}catch{}} await stopChild(); state = { ...state, phase: 'stopped' }; },
+    async stop() { abort?.abort(); if (job) {try{await job;}catch{}} await stopChild(); await providerBridge?.close();providerBridge=null;state = { ...state, phase: 'stopped' }; },
   };
 }

@@ -87,7 +87,8 @@ export async function startSetupServer({ port = 18797, directory, appDirectory, 
       if (request.headers['x-media-hub-token'] !== token) return send(403, { error: 'Reopen the local setup page and try again.' });
       if(removed)return send(410,{error:'Media Hub was uninstalled. Close this tab.'});
       if(request.method==='GET'&&request.url==='/api/system')return send(200,{...await lifecycle.review(),downloadStorage:managed.status().storagePath||null,
-        running:[['Jellyfin + Moonfin',mediaApps,18798],['AIOStreams',sources,18800],['Discovery',discover,18802],['Download apps',managed,'18803–18806']].map(([name,app,port])=>({name,phase:app.status().phase,address:'127.0.0.1',port})),
+        running:[...([['Jellyfin + Moonfin',mediaApps,18798],['AIOStreams',sources,18800],['Local provider connection',sources,18807],['Discovery',discover,18802],['Download apps',managed,'18803–18806']].map(([name,app,port])=>({name,phase:app.status().phase,address:'127.0.0.1',port}))),
+          {name:'Home TV access',phase:mediaApps.status().network?.phase||'off',address:mediaApps.status().network?.url?new URL(mediaApps.status().network.url).hostname:'Not enabled',port:18799}],
         releaseNotes:'/api/release-notes',sourceUrl:'https://github.com/Coveframe/coveframe'});
       if(request.method==='GET'&&request.url==='/api/release-notes')return send(200,{text:await readFile(new URL('../RELEASE-NOTES.md',import.meta.url),'utf8')});
       if(request.method==='POST'&&['/api/apps/stop','/api/uninstall'].includes(request.url)){
@@ -98,6 +99,8 @@ export async function startSetupServer({ port = 18797, directory, appDirectory, 
         try{
           await stopApps();
           if(!uninstall)return send(200,{ok:true});
+          try{await mediaApps.removeHomeNetworkPermission?.();}
+          catch{return send(422,{error:'Windows did not remove the home TV firewall permission. Your apps are stopped and files were kept. Retry Uninstall and approve the Windows permission.'});}
           const result=await lifecycle.uninstall(data);removed=true;
           response.once('finish',()=>{close().then(onStop).catch(()=>{});});
           return send(200,result);
@@ -109,6 +112,13 @@ export async function startSetupServer({ port = 18797, directory, appDirectory, 
         activeMutations++;mutation=true;
       }
       if (request.method === 'GET' && request.url === '/api/state') return send(200, { plan: savedPlan, accounts: accounts.status(), media: mediaApps.status(), sources: sources.status(), metadata: metadata.status(), discovery:discover.status(),downloads:downloads.status(),managedDownloads:managed.status(),settings:settingsView() });
+      const tvMatch=request.url.match(/^\/api\/tv\/(scan|enable|disable|check)$/);
+      if(request.method==='POST'&&tvMatch){
+        const data=await body(request),action=tvMatch[1];
+        if(Object.keys(data).some(key=>action==='enable'?!['adapterId','confirmation'].includes(key):true)||action==='enable'&&!Number.isInteger(data.adapterId))return send(400,{error:'Choose a home network from the list.'});
+        try{if(!mediaApps.homeNetwork)throw Error('TV access is not available in this runtime.');return send(200,await mediaApps.homeNetwork(action,data));}
+        catch(error){return send(422,{error:error.message});}
+      }
       const automaticMatch=request.url.match(/^\/api\/downloads\/automatic\/(start|stop)$/);
       if(request.method==='POST'&&automaticMatch){
         const data=await body(request),action=automaticMatch[1];

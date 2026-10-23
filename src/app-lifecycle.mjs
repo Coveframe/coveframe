@@ -6,7 +6,7 @@ import {mediaPackages} from './media-packages.mjs';
 const marker='.media-hub-setup.json';
 const ownedApps={Media:'media-hub-windows',AIOStreams:'media-hub-aiostreams',Discovery:'media-hub-discovery',DownloadApps:'media-hub-downloads'};
 const targets=['accounts.dpapi','setup.json','preferences.json','Metadata','Downloads',
- 'Media/Packages','Media/Downloads','Media/Data','Media/Config','Media/Cache','Media/Logs','Media/Secrets',
+ 'Media/Packages','Media/Downloads','Media/Data','Media/Config','Media/Cache','Media/Logs','Media/Secrets','Media/HomeNetwork',
  'AIOStreams','Discovery','DownloadApps/Packages','DownloadApps/Downloads','DownloadApps/Data','DownloadApps/Secrets'];
 
 // Removal is deliberately fixed to owned app data. Media and arbitrary paths never enter the delete list.
@@ -50,6 +50,7 @@ export async function createAppLifecycle({directory,appDirectory}={}){
    kept:[join(root,'Media','Library'),join(root,'DownloadApps','Files')],
    packages:Object.entries(mediaPackages).map(([id,pkg])=>({id,version:pkg.version,source:pkg.url||null,bundled:!pkg.url})),
    startup:'Only while Media Hub is open; no Windows service or automatic startup.',
+   networkRemoval:'If home TV access was enabled, Windows may ask permission to remove its Private-network firewall rule.',
    credentials:'Windows-user encrypted vault; vendor databases and configuration stay in private folders on this PC.'}),
   async uninstall({confirmation}={}){
    if(confirmation!=='REMOVE MEDIA HUB')throw Error('Confirm removal before uninstalling.');
